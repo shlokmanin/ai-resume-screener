@@ -257,11 +257,14 @@ def internal_error(error):
     db.session.rollback()
     return render_template('500.html'), 500
 
+import os
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         print("Database tables created successfully!")
     print("AI Resume Screening System starting...")
     print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
