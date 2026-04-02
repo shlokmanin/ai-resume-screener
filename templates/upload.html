@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Resume - AI Resume Screening{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <h2>Upload Your Resume</h2>
+    <p>Upload PDF resume for AI-powered skill extraction and matching</p>
+    
+    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label>Select Resume (PDF only):</label>
+            <input type="file" name="resume" accept=".pdf" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload & Analyze Resume</button>
+    </form>
+    
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
+{% endblock %}
+

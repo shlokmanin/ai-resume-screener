@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AI Resume Screening{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>Welcome, {{ current_user.username }}!</h1>
+    <p>Your AI Resume Screening Dashboard</p>
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>Upload Resume</h3>
+            <p>Upload PDF resume for AI analysis</p>
+            <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Now</a>
+        </div>
+        <div class="card">
+            <h3>View Results</h3>
+            <p>See matching scores and skills</p>
+            <a href="{{ url_for('results') }}" class="btn btn-primary">View Results</a>
+        </div>
+        <div class="card">
+            <h3>Give Feedback</h3>
+            <p>Help us improve the system</p>
+            <a href="{{ url_for('feedback') }}" class="btn btn-primary">Give Feedback</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

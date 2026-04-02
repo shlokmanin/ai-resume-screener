@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Results - AI Resume Screening{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <h2>Analysis Results</h2>
+    
+    <div class="results-grid">
+        <div class="result-card">
+            <h3>📄 File Info</h3>
+            <p><strong>Filename:</strong> {{ resume.file_name }}</p>
+            <p><strong>Uploaded:</strong> {{ resume.date_uploaded.strftime('%Y-%m-%d %H:%M') }}</p>
+            <p><strong>Skills Detected:</strong> {{ resume.skills or 'Processing...' }}</p>
+            <p><strong>Match Score:</strong> 
+                <span class="score-large">
+                    {% if resume.match_score %}{{ "%.1f"|format(resume.match_score * 100) }}{% else %}0.0{% endif %}
+                </span>%
+                {% if not resume.match_score %}<br><small>No job description provided yet.</small>{% endif %}
+            </p>
+        </div>
+        
+        <div class="result-card">
+            <h3>💡 AI Recommendations</h3>
+            {% if recommendations %}
+                <ul class="recommendations-list">
+                {% for rec in recommendations %}
+                    <li>{{ rec }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p>Great! Your resume is strong. 🎉</p>
+            {% endif %}
+        </div>
+        
+        <div class="result-card">
+            <h3>💼 Job Matching</h3>
+<form method="POST" action="{{ url_for('results_detail', resume_id=resume.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+        <label>Job Description:</label>
+        <textarea name="job_desc" rows="6" placeholder="Paste job description here..." required>{{ request.form.job_desc if request.form else '' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Calculate Match Score</button>
+</form>
+        </div>
+        
+        <div class="result-card full-width">
+            <h3>📖 Extracted Text</h3>
+            <div class="extracted-text">
+                {{ resume.extracted_text or 'No text extracted yet' }}
+            </div>
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Another Resume</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+
+<style>
+.results-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.result-card {
+    background: rgba(255,255,255,0.95);
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.result-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.score-large {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.results-grid textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+@media (max-width: 768px) {
+    .results-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+

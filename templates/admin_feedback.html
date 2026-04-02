@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Feedback - AI Resume Screening{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Feedback Management</h2>
+    
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mb-4">← Back to Dashboard</a>
+    
+    {% if feedbacks %}
+        {% for f in feedbacks %}
+        <div class="feedback-card mb-4 p-4 border rounded shadow-sm">
+            <h4>{{ f.name }} <small class="text-muted">({{ f.email }})</small></h4>
+            <div class="rating mb-2">
+                {% for i in range(f.rating) %}
+                    ⭐
+                {% endfor %}
+                <small>{{ f.rating }}/5</small>
+            </div>
+            <p>{{ f.message }}</p>
+            <small class="text-muted">{{ f.date_submitted.strftime('%Y-%m-%d %H:%M') if f.date_submitted else f.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5">
+            <h4>No feedback yet</h4>
+            <p>Feedback submissions will appear here.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
