@@ -180,117 +180,84 @@ def results():
 def results_detail(resume_id):
     resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first_or_404()
     
-    if request.method == 'POST':
-        job_desc = request.form['job_desc']
-        
-        resume_text = resume.extracted_text or ""
-        job_desc = request.form.get("job_desc", "")
-        
-        if resume_text and job_desc:
-            # Keyword Matching
-            job_words = set(job_desc.lower().split())
-            resume_words = set(resume_text.lower().split())
-            matched_words = job_words.intersection(resume_words)
-            keyword_score = (len(matched_words) / len(job_words)) if len(job_words) > 0 else 0
-            
-            # TF-IDF Similarity
-            documents = [resume_text, job_desc]
-            vectorizer = TfidfVectorizer(stop_words='english')
-            tfidf_matrix = vectorizer.fit_transform(documents)
-            tfidf_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
-            
-# ATS Score Breakdown (lightweight)
-            # Skills Match (40%)
-            job_skills = set(['python', 'java', 'sql', 'javascript', 'react', 'aws', 'docker', 'git', 'ml', 'data'])
-            resume_skills = set(resume.skills.lower().split(', ') if resume.skills else [])
-            skills_matched = len(job_skills.intersection(resume_skills))
-            skills_match = min((skills_matched / len(job_skills)) * 100, 100) if job_skills else 0
-            
-            # Keyword Match (30%) - from existing
-            keyword_match = keyword_score * 100
-            
-            # Project Relevance (20%)
-            project_rel = 80 if 'project' in resume_text.lower() or 'projects' in resume_text.lower() else 40
-            
-            # Resume Quality (10%)
-            text_length = len(resume_text.split())
-            quality = min((text_length / 400) * 100, 100)
-            
-            # Weighted ATS Score
-            ats_score = round(0.4 * skills_match + 0.3 * keyword_match + 0.2 * project_rel + 0.1 * quality, 1)
-            
-            # Ranking
-            if ats_score > 85:
-                rank = "Excellent Match 🏆"
-                rank_color = "green"
-            elif ats_score > 70:
-                rank = "Good Match ✅"
-                rank_color = "blue"
-            elif ats_score > 50:
-                rank = "Needs Improvement ⚠️"
-                rank_color = "orange"
-            else:
-                rank = "Poor Match ❌"
-                rank_color = "red"
-            
-            # Breakdown dict for frontend
-            breakdown = {
-                'skills': round(skills_match, 1),
-                'keywords': round(keyword_match, 1),
-                'projects': project_rel,
-                'quality': round(quality, 1),
-                'total': ats_score
-            }
-            
-# Advanced AI Recommendations (limit to 7)
-            recommendations = []
-            
-            # 1. Missing Skills (top 5)
-            job_keywords = [word for word in job_desc.lower().split() if len(word) > 3 and word.isalpha()]
-            resume_lower = resume_text.lower()
-            missing_skills = [skill for skill in set(job_keywords)[:10] if skill not in resume_lower][:5]
-            for skill in missing_skills:
-                recommendations.append(f"📌 Add '{skill.title()}' skill to improve match")
-            
-            # 2. Resume Improvement Tips
-            text_length = len(resume_text.split())
-            if text_length < 200:
-                recommendations.append("📄 Expand content: Add detailed project descriptions (aim for 300+ words)")
-            if 'project' not in resume_lower and 'projects' not in resume_lower:
-                recommendations.append("🚀 Add 'Projects' section with technologies used")
-            if 'experience' not in resume_lower and 'internship' not in resume_lower:
-                recommendations.append("💼 Include internship/work experience or academic projects")
-            if 'certification' not in resume_lower and 'certificate' not in resume_lower:
-                recommendations.append("🏆 Add certifications (Coursera, AWS, Google, etc.)")
-            
-            # 3. Content Quality Tips
-            recommendations.append("✍️ Use action verbs: Developed, Built, Designed, Led, Optimized")
-            recommendations.append("📊 Add measurable achievements: 'Improved performance by 30%', 'Reduced load time by 40%'")
-            
-            # 4. Headline Suggestion
-            if resume.skills:
-                headline = f"{current_user.username.split()[0]} | {resume.skills.split(',')[0].title()} Expert | Final Year Student"
-            else:
-                headline = f"{current_user.username.split()[0]} | Aspiring Software Developer"
-            recommendations.append(f"🎯 Suggested Headline: \"{headline}\"")
-            
-            # Limit to 7
-            recommendations = recommendations[:7]
-            
-        else:
-            match_score = 0
-            recommendations = ["Please enter a job description to get accurate score and recommendations."]
-        
-        match_score = round(match_score, 2)
-        
-        resume.match_score = match_score / 100.0  # Store as 0-1 fraction
-        resume.job_description = job_desc
-        db.session.commit()
-        
-        flash(f'ATS Score: {ats_score}% - {rank}', 'success')
-        return render_template('results.html', resume=resume, ats_breakdown=breakdown, rank=rank, rank_color=rank_color, recommendations=recommendations)
+    # Always define breakdown as dict
+    ats_breakdown = {
+        'skills': 0,
+        'keywords': 0,
+        'projects': 0,
+        'quality': 0,
+        'total': 0
+    }
+    rank = None
+    rank_color = None
+    recommendations = []
     
-    return render_template('results.html', resume=resume, ats_breakdown=None)
+    if request.method == 'POST':
+        try:
+            job_desc = request.form.get('job_desc', '').strip()
+            
+            if not job_desc:
+                flash("Please enter job description", "warning")
+            else:
+                resume_text = resume.extracted_text or ""
+                
+                if not resume_text:
+                    flash("Resume text missing", "danger")
+                else:
+                    # Simplified TF-IDF from task
+                    vectorizer = TfidfVectorizer(stop_words='english')
+                    tfidf = vectorizer.fit_transform([resume_text, job_desc])
+                    score = cosine_similarity(tfidf[0:1], tfidf[1:2])[0][0]
+                    
+                    ats_score = round(score * 100, 2)
+                    
+                    # Breakdown logic from task (adapted to dict keys)
+                    ats_breakdown["skills"] = min(ats_score * 0.4, 40)
+                    ats_breakdown["keywords"] = min(ats_score * 0.3, 30)
+                    ats_breakdown["projects"] = 20  # structure → projects
+                    ats_breakdown["quality"] = 10   # experience → quality
+                    ats_breakdown["total"] = ats_score
+                    
+                    # Simple rank
+                    if ats_score > 85:
+                        rank = "Excellent Match 🏆"
+                        rank_color = "green"
+                    elif ats_score > 70:
+                        rank = "Good Match ✅"
+                        rank_color = "blue"
+                    elif ats_score > 50:
+                        rank = "Needs Improvement ⚠️"
+                        rank_color = "orange"
+                    else:
+                        rank = "Poor Match ❌"
+                        rank_color = "red"
+                    
+                    # Simple recommendations
+                    recommendations = [
+                        "📌 Tailor keywords from job description",
+                        "✍️ Use action verbs: Developed, Built, Led",
+                        "📊 Quantify achievements with numbers",
+                        "🚀 Highlight relevant projects first"
+                    ]
+                    
+                    resume.match_score = ats_score / 100.0
+                    resume.job_description = job_desc
+                    db.session.commit()
+                    
+                    flash(f'ATS Score: {ats_score}% - {rank}', 'success')
+            
+        except Exception as e:
+            print("ERROR:", e)
+            flash("Something went wrong in ATS calculation", "danger")
+    
+    return render_template(
+        'results.html',
+        resume=resume,
+        ats_breakdown=ats_breakdown,
+        rank=rank,
+        rank_color=rank_color,
+        recommendations=recommendations
+    )
 
 @login_required
 @app.route('/feedback', methods=['GET', 'POST'])
