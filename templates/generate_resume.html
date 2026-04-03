@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}AI Resume Generator - {{ resume.file_name }}{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <h2>✨ AI Resume Generator</h2>
+    <p>Edit the AI-generated content below and download your improved resume!</p>
+    
+    <div class="result-card full-width">
+        <div class="form-group">
+            <label>Resume Template:</label>
+            <select id="templateSelect" onchange="applyTemplate()" class="form-control">
+                <option value="simple">Simple</option>
+                <option value="modern">Modern</option>
+                <option value="professional">Professional</option>
+            </select>
+        </div>
+        
+        <label>Generated Resume (Editable):</label>
+        <textarea name="edited_resume" id="resumeContent" rows="25" class="form-control" style="font-family: monospace; font-size: 14px; padding: 20px;">{{ generated_text }}</textarea>
+    </div>
+    
+    <div class="download-buttons" style="text-align: center; margin-top: 2rem;">
+        <form method="POST" action="{{ url_for('download_pdf', resume_id=resume.id) }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="edited_resume" style="display:none;">{{ generated_text }}</textarea>
+            <button type="submit" class="btn btn-primary" style="font-size: 1.1rem; padding: 15px 40px;">📄 Download PDF</button>
+        </form>
+        
+        <form method="POST" action="{{ url_for('download_docx', resume_id=resume.id) }}" style="display: inline; margin-left: 1rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="edited_resume" style="display:none;">{{ generated_text }}</textarea>
+            <button type="submit" class="btn btn-secondary" style="font-size: 1.1rem; padding: 15px 40px;">📝 Download Word (.docx)</button>
+        </form>
+    </div>
+    
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="{{ url_for('results_detail', resume_id=resume.id) }}" class="btn btn-secondary">← Back to Results</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Dashboard</a>
+    </div>
+</div>
+
+<script>
+function applyTemplate() {
+    const template = document.getElementById('templateSelect').value;
+    const content = document.getElementById('resumeContent');
+    // Simple JS template styling preview (UI only)
+    if (template === 'modern') {
+        content.style.fontFamily = 'Roboto, sans-serif';
+        content.style.background = '#f8f9ff';
+    } else {
+        content.style.fontFamily = 'monospace';
+        content.style.background = 'white';
+    }
+}
+</script>
+
+<style>
+.download-buttons form {
+    display: inline-block;
+}
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+select.form-control {
+    max-width: 300px;
+}
+</style>
+{% endblock %}

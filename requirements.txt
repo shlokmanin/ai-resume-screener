@@ -8,4 +8,7 @@ scikit-learn==1.5.0
 nltk==3.8.1
 python-dotenv==1.0.1
 gunicorn
+reportlab==4.0.9
+python-docx==1.1.2
+
 

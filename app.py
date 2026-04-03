@@ -15,6 +15,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from flask import send_file
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from docx import Document
+from io import BytesIO
 
 # Load environment variables
 load_dotenv()
@@ -198,16 +203,46 @@ def results_detail(resume_id):
             final_score = (0.7 * keyword_score + 0.3 * tfidf_score) * 100
             match_score = round(final_score, 2)
             
-            # Recommendations
-            missing_skills = job_words - resume_words if job_desc else []
+# Advanced AI Recommendations (limit to 7)
             recommendations = []
-            for skill in list(missing_skills)[:5]:
-                recommendations.append(f"Add '{skill}' to improve your resume")
-            if match_score < 50:
-                recommendations.append("Improve your resume with more relevant skills from job description")
+            
+            # 1. Missing Skills (top 5)
+            job_keywords = [word for word in job_desc.lower().split() if len(word) > 3 and word.isalpha()]
+            resume_lower = resume_text.lower()
+            missing_skills = [skill for skill in set(job_keywords)[:10] if skill not in resume_lower][:5]
+            for skill in missing_skills:
+                recommendations.append(f"📌 Add '{skill.title()}' skill to improve match")
+            
+            # 2. Resume Improvement Tips
+            text_length = len(resume_text.split())
+            if text_length < 200:
+                recommendations.append("📄 Expand content: Add detailed project descriptions (aim for 300+ words)")
+            if 'project' not in resume_lower and 'projects' not in resume_lower:
+                recommendations.append("🚀 Add 'Projects' section with technologies used")
+            if 'experience' not in resume_lower and 'internship' not in resume_lower:
+                recommendations.append("💼 Include internship/work experience or academic projects")
+            if 'certification' not in resume_lower and 'certificate' not in resume_lower:
+                recommendations.append("🏆 Add certifications (Coursera, AWS, Google, etc.)")
+            
+            # 3. Content Quality Tips
+            recommendations.append("✍️ Use action verbs: Developed, Built, Designed, Led, Optimized")
+            recommendations.append("📊 Add measurable achievements: 'Improved performance by 30%', 'Reduced load time by 40%'")
+            
+            # 4. Headline Suggestion
+            if resume.skills:
+                headline = f"{current_user.username.split()[0]} | {resume.skills.split(',')[0].title()} Expert | Final Year Student"
+            else:
+                headline = f"{current_user.username.split()[0]} | Aspiring Software Developer"
+            recommendations.append(f"🎯 Suggested Headline: \"{headline}\"")
+            
+            # Limit to 7
+            recommendations = recommendations[:7]
+            
         else:
             match_score = 0
             recommendations = ["Please enter a job description to get accurate score and recommendations."]
+        
+        match_score = round(match_score, 2)
         
         resume.match_score = match_score / 100.0  # Store as 0-1 fraction
         resume.job_description = job_desc
@@ -239,6 +274,102 @@ def feedback():
         return redirect(url_for('dashboard'))
     
     return render_template('feedback.html')
+
+def generate_improved_resume(resume, username):
+    """Generate structured improved resume text"""
+    skills = resume.skills or "Python, SQL, Machine Learning"
+    text_lower = resume.extracted_text.lower() if resume.extracted_text else ""
+    
+    headline = f"{username.split()[0]} | {skills.split(',')[0].title()} Developer | Final Year B.Tech Student"
+    
+    projects = []
+    if 'project' in text_lower:
+        projects.append("- Developed ML model for resume screening (Python, scikit-learn)")
+        projects.append("- Built full-stack web app with Flask and React")
+    else:
+        projects.append("- Add your projects with tech stack and achievements")
+    
+    experience = "Final Year B.Tech Student | Relevant Coursework: ML, Data Structures, DBMS"
+    if 'internship' in text_lower:
+        experience = "Internship Experience | Academic Projects"
+    
+    certifications = ["Coursera: Machine Learning (Recommended)", "AWS Cloud Practitioner (Suggested)"]
+    
+    improved_resume = f"""{username.title()}
+{headline}
+
+SKILLS
+{skills.upper()}
+
+PROJECTS
+""" + "\n".join(projects) + f"""
+
+EXPERIENCE
+{experience}
+
+CERTIFICATIONS
+""" + "\n".join(certifications) + """
+
+EDUCATION
+B.Tech Computer Science | Final Year | GPA: X.XX
+
+Add more sections, use action verbs, quantify achievements!
+"""
+    return improved_resume
+
+@login_required
+@app.route('/generate_resume/<int:resume_id>')
+def generate_resume(resume_id):
+    resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first_or_404()
+    generated_text = generate_improved_resume(resume, current_user.username)
+    return render_template('generate_resume.html', resume=resume, generated_text=generated_text)
+
+@login_required
+@app.route('/download/pdf/<int:resume_id>', methods=['POST'])
+def download_pdf(resume_id):
+    resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first_or_404()
+    edited_text = request.form.get('edited_resume', '')
+    if not edited_text:
+        edited_text = generate_improved_resume(resume, current_user.username)
+    
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    y = height - 50
+    lines = edited_text.split('\n')
+    for line in lines:
+        if y < 50:
+            p.showPage()
+            p.setFont("Helvetica", 10)
+            y = height - 50
+        p.drawString(50, y, line[:80])  # Truncate long lines
+        y -= 15
+    p.save()
+    buffer.seek(0)
+    
+    from flask import make_response
+    response = make_response(send_file(buffer, as_attachment=True, download_name=f"AI_Resume_{resume.file_name.replace('.pdf','')}.pdf", mimetype='application/pdf'))
+    return response
+
+@login_required
+@app.route('/download/docx/<int:resume_id>', methods=['POST'])
+def download_docx(resume_id):
+    resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first_or_404()
+    edited_text = request.form.get('edited_resume', '')
+    if not edited_text:
+        edited_text = generate_improved_resume(resume, current_user.username)
+    
+    doc = Document()
+    doc.add_heading(current_user.username.title(), 0)
+    doc.add_heading('Generated by AI Resume Enhancer', level=2)
+    doc.add_paragraph(edited_text)
+    
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name=f"AI_Resume_{resume.file_name.replace('.pdf','')}.docx", mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
 @app.route('/logout')
 @login_required
