@@ -199,9 +199,48 @@ def results_detail(resume_id):
             tfidf_matrix = vectorizer.fit_transform(documents)
             tfidf_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
             
-            # Final Combined Score
-            final_score = (0.7 * keyword_score + 0.3 * tfidf_score) * 100
-            match_score = round(final_score, 2)
+# ATS Score Breakdown (lightweight)
+            # Skills Match (40%)
+            job_skills = set(['python', 'java', 'sql', 'javascript', 'react', 'aws', 'docker', 'git', 'ml', 'data'])
+            resume_skills = set(resume.skills.lower().split(', ') if resume.skills else [])
+            skills_matched = len(job_skills.intersection(resume_skills))
+            skills_match = min((skills_matched / len(job_skills)) * 100, 100) if job_skills else 0
+            
+            # Keyword Match (30%) - from existing
+            keyword_match = keyword_score * 100
+            
+            # Project Relevance (20%)
+            project_rel = 80 if 'project' in resume_text.lower() or 'projects' in resume_text.lower() else 40
+            
+            # Resume Quality (10%)
+            text_length = len(resume_text.split())
+            quality = min((text_length / 400) * 100, 100)
+            
+            # Weighted ATS Score
+            ats_score = round(0.4 * skills_match + 0.3 * keyword_match + 0.2 * project_rel + 0.1 * quality, 1)
+            
+            # Ranking
+            if ats_score > 85:
+                rank = "Excellent Match 🏆"
+                rank_color = "green"
+            elif ats_score > 70:
+                rank = "Good Match ✅"
+                rank_color = "blue"
+            elif ats_score > 50:
+                rank = "Needs Improvement ⚠️"
+                rank_color = "orange"
+            else:
+                rank = "Poor Match ❌"
+                rank_color = "red"
+            
+            # Breakdown dict for frontend
+            breakdown = {
+                'skills': round(skills_match, 1),
+                'keywords': round(keyword_match, 1),
+                'projects': project_rel,
+                'quality': round(quality, 1),
+                'total': ats_score
+            }
             
 # Advanced AI Recommendations (limit to 7)
             recommendations = []
@@ -248,10 +287,10 @@ def results_detail(resume_id):
         resume.job_description = job_desc
         db.session.commit()
         
-        flash(f'Match score updated: {match_score}%', 'success')
-        return render_template('results.html', resume=resume, match_score=match_score, recommendations=recommendations)
+        flash(f'ATS Score: {ats_score}% - {rank}', 'success')
+        return render_template('results.html', resume=resume, ats_breakdown=breakdown, rank=rank, rank_color=rank_color, recommendations=recommendations)
     
-    return render_template('results.html', resume=resume)
+    return render_template('results.html', resume=resume, ats_breakdown=None)
 
 @login_required
 @app.route('/feedback', methods=['GET', 'POST'])

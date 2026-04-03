@@ -12,11 +12,12 @@
             <p><strong>Filename:</strong> {{ resume.file_name }}</p>
             <p><strong>Uploaded:</strong> {{ resume.date_uploaded.strftime('%Y-%m-%d %H:%M') }}</p>
             <p><strong>Skills Detected:</strong> {{ resume.skills or 'Processing...' }}</p>
-            <p><strong>Match Score:</strong> 
-                <span class="score-large">
-                    {% if resume.match_score %}{{ "%.1f"|format(resume.match_score * 100) }}{% else %}0.0{% endif %}
-                </span>%
-                {% if not resume.match_score %}<br><small>No job description provided yet.</small>{% endif %}
+<p><strong>ATS Score:</strong> 
+                <span class="score-large" style="color: {% if rank_color %}{{ rank_color }}{% else %}#ccc{% endif %}">
+                    {% if ats_breakdown %}{{ ats_breakdown.total }}<small>%</small>{% else %}--{% endif %}
+                </span>
+                {% if rank %}<span style="font-size: 1.2rem; margin-left: 10px; padding: 5px 15px; background: {{ rank_color }}20; border-radius: 20px; font-weight: bold;">{{ rank }}</span>{% endif %}
+                {% if not ats_breakdown %}<br><small>Enter job description for ATS analysis</small>{% endif %}
             </p>
         </div>
         
@@ -46,10 +47,19 @@
         </div>
         
         <div class="result-card full-width">
-            <h3>📖 Extracted Text</h3>
-            <div class="extracted-text">
-                {{ resume.extracted_text or 'No text extracted yet' }}
+            <h3>📊 ATS Analytics {% if ats_breakdown %}({{ ats_breakdown.total }}%){% endif %}</h3>
+            {% if ats_breakdown %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div><strong>Skills:</strong> {{ ats_breakdown.skills }}%</div>
+                <div><strong>Keywords:</strong> {{ ats_breakdown.keywords }}%</div>
+                <div><strong>Projects:</strong> {{ ats_breakdown.projects }}%</div>
+                <div><strong>Quality:</strong> {{ ats_breakdown.quality }}%</div>
             </div>
+            <canvas id="atsPieChart" width="300" height="300"></canvas>
+            <canvas id="skillsBarChart" width="400" height="200" style="margin-top: 1rem;"></canvas>
+            {% else %}
+            <p>Enter job description to see ATS breakdown & charts</p>
+            {% endif %}
         </div>
     </div>
     
@@ -104,6 +114,37 @@
         grid-template-columns: 1fr;
     }
 }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if ats_breakdown %}
+const ctxPie = document.getElementById('atsPieChart').getContext('2d');
+new Chart(ctxPie, {
+    type: 'pie',
+    data: {
+        labels: ['Skills', 'Keywords', 'Projects', 'Quality'],
+        datasets: [{
+            data: [{{ ats_breakdown.skills }}, {{ ats_breakdown.keywords }}, {{ ats_breakdown.projects }}, {{ ats_breakdown.quality }}],
+            backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0']
+        }]
+    },
+    options: { responsive: true }
+});
+
+const ctxBar = document.getElementById('skillsBarChart').getContext('2d');
+new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+        labels: ['Matched', 'Missing'],
+        datasets: [{ 
+            label: 'Skills',
+            data: [{{ ats_breakdown.skills }}, 100-{{ ats_breakdown.skills }}],
+            backgroundColor: ['#36A2EB', '#FF6384']
+        }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
+});
+{% endif %}
+</script>
 </style>
 {% endblock %}
 
